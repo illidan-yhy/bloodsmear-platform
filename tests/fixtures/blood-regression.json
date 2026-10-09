@@ -1,0 +1,20 @@
+{
+  "purpose": "software-regression-only",
+  "model_sha256": "DB0AD53FFDE42A343C322E88ED41F58C4240E5BDE98035CB33E62C5F33305065",
+  "image_sha256": "E230F5C8877E431D23A842C6C1F130A9782E5B8FA5F9D982D84D5E4F77B9FD12",
+  "confidence_threshold": 0.25,
+  "iou_threshold": 0.7,
+  "expected": {
+    "total_detected_cells": 55,
+    "cell_counts": {
+      "Basophil": 0,
+      "Eosinophil": 0,
+      "Lymphocyte": 0,
+      "Monocyte": 2,
+      "Neutrophil": 0,
+      "Platelets": 1,
+      "RBC": 52
+    }
+  }
+}
+

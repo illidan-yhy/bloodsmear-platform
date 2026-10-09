@@ -1,0 +1,27 @@
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.pytest-tmp/
+.ruff_cache/
+.coverage
+htmlcov/
+build/
+dist/
+*.egg-info/
+.env
+outputs/
+data/
+logs/
+releases/
+.superpowers/
+.idea/
+docs/superpowers/
+
+# Public source repository: obtain model weights separately.
+*.onnx
+*.pt
+*.pth
+*.engine
+samples/*
+!samples/Blood.png

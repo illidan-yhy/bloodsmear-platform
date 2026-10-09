@@ -1,0 +1,19 @@
+name: blood-cell-yolo11
+version: 1.0.0
+model_file: model.onnx
+sha256: DB0AD53FFDE42A343C322E88ED41F58C4240E5BDE98035CB33E62C5F33305065
+input_size: 640
+input_dtype: float32
+classes:
+  - Basophil
+  - Eosinophil
+  - Lymphocyte
+  - Monocyte
+  - Neutrophil
+  - Platelets
+  - RBC
+confidence_threshold: 0.25
+iou_threshold: 0.70
+max_detections: 3000
+license_status: pending_publisher_confirmation
+

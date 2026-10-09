@@ -1,0 +1,15 @@
+.git
+.gitignore
+.venv
+.pytest_cache
+.pytest-tmp
+.superpowers
+docs
+models
+outputs
+samples
+tests
+__pycache__
+*.py[cod]
+*.egg-info
+

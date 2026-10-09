@@ -1,0 +1,35 @@
+services:
+  bloodsmear:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: bloodsmear-mvp:0.1.0
+    init: true
+    ports:
+      - "8000:8000"
+    environment:
+      BLOODSMEAR_MODEL_DIR: /app/models/blood-cell-yolo11/1.0.0
+      BLOODSMEAR_OUTPUT_DIR: /app/outputs
+      BLOODSMEAR_DATABASE_PATH: /app/data/bloodsmear.db
+      BLOODSMEAR_JOBS_ROOT: /app/data/jobs
+      BLOODSMEAR_REQUIRE_GPU: "true"
+      BLOODSMEAR_LOG_DIR: /app/logs
+      BLOODSMEAR_LOG_RETENTION_DAYS: "14"
+    user: "${BLOODSMEAR_UID:-1000}:${BLOODSMEAR_GID:-1000}"
+    volumes:
+      - ./models:/app/models:ro
+      - ./outputs:/app/outputs
+      - ./data:/app/data
+      - ./logs:/app/logs
+    gpus: all
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/ready', timeout=5).read()
+      interval: 15s
+      timeout: 8s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped

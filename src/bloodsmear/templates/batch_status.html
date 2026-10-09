@@ -1,0 +1,18 @@
+<div class="batch-status"
+     {% if not terminal %}hx-get="/ui/jobs/{{ job.id }}/status" hx-trigger="every 2s" hx-swap="outerHTML"{% endif %}>
+  <div class="result-head">
+    <div><span class="label">任务</span><strong>{{ job.id }}</strong></div>
+    <div><span class="label">模式</span><strong>{{ job.mode.value }}</strong></div>
+    <div><span class="label">状态</span><strong>{{ job.status.value }}</strong></div>
+  </div>
+  <div class="progress-track"><span style="width: {{ ((job.completed_items + job.failed_items) / job.total_items * 100) if job.total_items else 0 }}%"></span></div>
+  <p>{{ job.completed_items + job.failed_items }} / {{ job.total_items }} 已处理；{{ job.failed_items }} 失败</p>
+  {% if terminal %}
+    <div class="downloads">
+      <a href="/api/v1/jobs/{{ job.id }}/download" download>下载 ZIP</a>
+    </div>
+  {% endif %}
+  {% for item in job.items if item.status.value == 'failed' %}
+    <p class="item-error">{{ item.original_filename }}：{{ item.error_code }}</p>
+  {% endfor %}
+</div>

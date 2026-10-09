@@ -1,0 +1,18 @@
+甲方 Windows + RTX 3060 联网试用
+
+1. 完整解压到用户可写目录，例如 D:\BloodSmear。
+2. 安装 Python 3.11 x64 和 VC++ x64运行库；更新GeForce显卡驱动。
+3. 双击04_collect_info.cmd采集电脑配置。
+4. 双击01_install.cmd联网安装，等待GPU检查通过。
+5. 双击02_start.cmd，保持窗口打开。
+6. 浏览器打开 http://127.0.0.1:8000 （无需VPN）。
+7. 用samples/Blood.png测试；批量ZIP含整体和每图报告。
+8. Ctrl+C正常停止；05_stop.cmd为强制停止。
+
+完整手册：docs/deployment/01-Windows-RTX3060试用部署手册.md
+环境检查结果：outputs/environment-check.json
+后续Linux服务器部署和并发说明都在docs/deployment目录。
+
+联网版首次安装需要下载CUDA Python依赖，文件较大，请耐心等待。
+本包不含Python、显卡驱动安装程序；官方下载链接见手册。
+本机已验证，不代表甲方RTX3060电脑已完成验收。

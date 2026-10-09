@@ -1,0 +1,114 @@
+{% if not fragment %}
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>外周血涂片推理</title>
+  <link rel="stylesheet" href="/static/app.css">
+  <script src="/static/htmx.min.js"></script>
+</head>
+<body>
+  <main class="shell">
+    <header>
+      <p class="eyebrow">RESEARCH USE ONLY</p>
+      <h1>外周血涂片推理</h1>
+      <p class="subtitle">上传单张显微图像，输出七类细胞检测、数量和比例。</p>
+    </header>
+    <section class="panel upload-panel">
+      <h2>单图推理</h2>
+      <form hx-post="/ui/infer" hx-target="#result" hx-swap="innerHTML" hx-encoding="multipart/form-data">
+        <label>样本 ID（可选）<input name="sample_id" type="text" maxlength="128"></label>
+        <details><summary>样本元数据（可选）</summary>
+          <input name="patient_id" placeholder="Patient ID" maxlength="128">
+          <input name="stain_method" placeholder="染色方式" maxlength="256">
+          <input name="scanner_model" placeholder="扫描仪" maxlength="256">
+          <input name="magnification" placeholder="倍率" maxlength="256">
+          <input name="pixel_resolution" placeholder="像素分辨率" maxlength="256">
+          <input name="operator" placeholder="操作员" maxlength="256">
+          <textarea name="notes" placeholder="备注" maxlength="2000"></textarea>
+        </details>
+        <label>显微图像<input name="image" type="file" accept=".jpg,.jpeg,.png,.tif,.tiff" required></label>
+        <button type="submit">开始推理</button>
+      </form>
+    </section>
+    <section class="panel upload-panel">
+      <h2>批量推理</h2>
+      <form class="batch-form" hx-post="/ui/jobs" hx-target="#batch-result" hx-swap="innerHTML" hx-encoding="multipart/form-data">
+        <fieldset>
+          <legend>模式</legend>
+          <label><input type="radio" name="mode" value="independent" checked> 独立样本</label>
+          <label><input type="radio" name="mode" value="grouped"> 同一样本多视野</label>
+        </fieldset>
+        <label>多视野样本 ID<input name="sample_id" type="text" maxlength="128" placeholder="多视野模式必填"></label>
+        <details><summary>批次公共元数据（可选）</summary>
+          <input name="patient_id" placeholder="Patient ID（仅 grouped）" maxlength="128">
+          <input name="stain_method" placeholder="染色方式" maxlength="256">
+          <input name="scanner_model" placeholder="扫描仪" maxlength="256">
+          <input name="magnification" placeholder="倍率" maxlength="256">
+          <input name="pixel_resolution" placeholder="像素分辨率" maxlength="256">
+          <input name="operator" placeholder="操作员" maxlength="256">
+          <textarea name="notes" placeholder="备注" maxlength="2000"></textarea>
+        </details>
+        <label>显微图像（最多100张）<input name="files" type="file" accept=".jpg,.jpeg,.png,.tif,.tiff" multiple required></label>
+        <button type="submit">创建批量任务</button>
+      </form>
+      <div id="batch-result"></div>
+    </section>
+    <section id="result">
+{% endif %}
+
+{% if result %}
+      <div class="panel result-panel">
+        <div class="result-head">
+          <div><span class="label">样本</span><strong>{{ result.sample_id }}</strong></div>
+          <div><span class="label">Provider</span><strong>{{ result.runtime.provider }}</strong></div>
+          <div><span class="label">总耗时</span><strong>{{ "%.1f"|format(result.runtime.total_ms) }} ms</strong></div>
+        </div>
+        {% if result.qc.warnings %}
+        <div class="warnings">
+          {% for warning in result.qc.warnings %}<span>{{ warning }}</span>{% endfor %}
+        </div>
+        {% endif %}
+        <div class="grid">
+          <div>
+            <h2>七类数量</h2>
+            <table>
+              <tbody>
+              {% for name, count in result.summary.cell_counts.items() %}
+                <tr><th>{{ name }}</th><td>{{ count }}</td></tr>
+              {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          <div>
+            <h2>WBC 差分比例</h2>
+            <table>
+              <tbody>
+              {% for name, ratio in result.summary.wbc_differential_ratios.items() %}
+                <tr><th>{{ name }}</th><td>{% if ratio is none %}—{% else %}{{ "%.2f%%"|format(ratio * 100) }}{% endif %}</td></tr>
+              {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <img class="annotated" src="{{ artifacts.annotated_image }}" alt="检测标注图">
+        <div class="downloads">
+          <a href="{{ artifacts.annotated_image }}" download>下载标注图</a>
+          <a href="{{ artifacts.json }}" download>下载 JSON</a>
+          <a href="{{ artifacts.csv }}" download>下载 CSV</a>
+          {% if artifacts.excel %}<a href="{{ artifacts.excel }}" download>下载 Excel</a>{% endif %}
+          {% if artifacts.pdf %}<a href="{{ artifacts.pdf }}" download>下载 PDF</a>{% endif %}
+        </div>
+      </div>
+{% elif fragment %}
+      <div class="panel">未生成结果。</div>
+{% endif %}
+
+{% if not fragment %}
+    </section>
+    <footer>科研与内部分析用途，不用于临床诊断。</footer>
+  </main>
+</body>
+</html>
+{% endif %}
