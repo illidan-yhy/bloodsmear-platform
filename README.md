@@ -63,14 +63,7 @@ uv pip install --python .\.venv\Scripts\python.exe --no-deps -e .
 
 如需把平台接入其他软件，启动后可在 <http://127.0.0.1:8000/docs> 查看接口说明。
 
-## 部署资料
 
-- [Windows 电脑试用部署](docs/deployment/01-Windows-RTX3060试用部署手册.md)
-- [后续部署需要采集的电脑、服务器信息](docs/deployment/02-后续部署环境信息采集表.md)
-- [Linux 服务器及离线部署](docs/deployment/03-Linux服务器与离线部署手册.md)
-- [多人访问与容量说明](docs/deployment/04-并发能力与容量说明.md)
-
-仓库中提供了 Linux 部署配置，但仍需在实际服务器上完成安装和验证，不能仅凭配置文件认定部署成功。可同时访问的人数也需要结合服务器配置和实际处理任务测试。
 
 ## 输入要求与使用限制
 
