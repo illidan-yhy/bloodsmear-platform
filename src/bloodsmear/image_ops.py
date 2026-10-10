@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import warnings
 from dataclasses import dataclass
 from io import BytesIO
 from pathlib import Path
@@ -10,7 +11,7 @@ import numpy as np
 from numpy.typing import NDArray
 from PIL import Image, ImageOps, UnidentifiedImageError
 
-from bloodsmear.errors import InvalidImageError
+from bloodsmear.errors import InvalidImageError, UnsupportedImageModeError
 
 
 SUPPORTED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".tif", ".tiff"}
@@ -76,15 +77,33 @@ def decode_image(
         raise InvalidImageError("Image exceeds the 25 MiB upload limit")
 
     try:
-        with Image.open(BytesIO(data)) as opened:
-            image = ImageOps.exif_transpose(opened)
-            image.load()
-            if image.mode == "RGBA":
-                background = Image.new("RGBA", image.size, (255, 255, 255, 255))
-                image = Image.alpha_composite(background, image).convert("RGB")
-            else:
-                image = image.convert("RGB")
-            rgb = np.asarray(image, dtype=np.uint8).copy()
+        with warnings.catch_warnings():
+            # Reject unsafe dimensions before decoding pixel data; do not disable Pillow's guard.
+            warnings.simplefilter("error", Image.DecompressionBombWarning)
+            with Image.open(BytesIO(data)) as opened:
+                # Check original metadata before EXIF transpose/RGB conversion can lose bit depth.
+                # Signed 16-bit TIFFs can open in mode I, so mode alone is insufficient.
+                grayscale16 = opened.mode.startswith("I;16")
+                if opened.format == "TIFF":
+                    bits = opened.tag_v2.get(258, ())
+                    bits = (bits,) if isinstance(bits, int) else tuple(bits)
+                    grayscale16 = grayscale16 or (
+                        opened.tag_v2.get(277, 1) == 1 and bits == (16,)
+                    )
+                if grayscale16:
+                    raise UnsupportedImageModeError()
+                image = ImageOps.exif_transpose(opened)
+                image.load()
+                if image.mode == "RGBA":
+                    background = Image.new("RGBA", image.size, (255, 255, 255, 255))
+                    image = Image.alpha_composite(background, image).convert("RGB")
+                else:
+                    image = image.convert("RGB")
+                rgb = np.asarray(image, dtype=np.uint8).copy()
+    except (Image.DecompressionBombError, Image.DecompressionBombWarning) as exc:
+        raise InvalidImageError(
+            "Image pixel dimensions are too large; upload a smaller image"
+        ) from exc
     except (UnidentifiedImageError, OSError, ValueError) as exc:
         raise InvalidImageError("Unable to decode image data") from exc
 

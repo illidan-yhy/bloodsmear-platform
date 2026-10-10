@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import tempfile
 import zipfile
 from dataclasses import dataclass
@@ -59,6 +60,17 @@ def _write_zip(
     items: Sequence[BatchItem],
     job_root: Path,
 ) -> Path:
+    # Public ZIP names are independent of private storage paths and item IDs.
+    export_directories = {
+        item.id: _zip_result_directory(item)
+        for item in items
+        if item.status == ItemStatus.COMPLETED and item.result_directory
+    }
+    exported_summary = summary.model_copy(update={
+        "items": [entry.model_copy(update={
+            "result_directory": export_directories.get(entry.item_id)
+        }) for entry in summary.items]
+    })
     destination = job_root / "results.zip"
     descriptor, temporary_name = tempfile.mkstemp(
         prefix=".results.", suffix=".tmp", dir=job_root
@@ -86,13 +98,33 @@ def _write_zip(
         ):
             path = item_root / filename
             if path.is_file():
-                members.append((path, f"items/{item.id}/{filename}"))
+                members.append((path, f"{export_directories[item.id]}/{filename}"))
     try:
         with zipfile.ZipFile(temporary, "w", zipfile.ZIP_DEFLATED) as archive:
             for path, archive_name in sorted(members, key=lambda pair: pair[1]):
-                archive.write(path, archive_name)
+                if archive_name == "summary.json":
+                    archive.writestr(archive_name, exported_summary.model_dump_json(indent=2))
+                else:
+                    archive.write(path, archive_name)
         os.replace(temporary, destination)
     except Exception:
         temporary.unlink(missing_ok=True)
         raise
     return destination
+
+
+def _zip_result_directory(item: BatchItem) -> str:
+    # A single Windows-safe component: never interpret an uploaded name as a path.
+    filename = re.sub(r'[<>:"/\\|?*\x00-\x1f\x7f]', "_", item.original_filename).rstrip(" .")
+    filename = filename or "image"
+    if len(filename) > 120 or len(filename.encode("utf-8")) > 240:
+        suffix = Path(filename).suffix
+        # Accepted image suffixes are short; do not let an arbitrary long suffix defeat the limit.
+        suffix = suffix if len(suffix) <= 16 else ""
+        stem = filename[:-len(suffix)] if suffix else filename
+        stem = stem[:120 - len(suffix)]
+        # Linux/macOS limits count encoded bytes, whereas Windows counts UTF-16 units.
+        # Decode only the valid prefix so truncation never leaves a partial Unicode character.
+        stem = stem.encode("utf-8")[:240 - len(suffix.encode("utf-8"))].decode("utf-8", errors="ignore")
+        filename = stem.rstrip(" .") + suffix
+    return f"items/{item.ordinal + 1:03d}_{filename}"

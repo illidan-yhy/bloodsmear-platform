@@ -7,6 +7,7 @@
   <title>外周血涂片推理</title>
   <link rel="stylesheet" href="/static/app.css">
   <script src="/static/htmx.min.js"></script>
+  <script src="/static/ui-feedback.js" defer></script>
 </head>
 <body>
   <main class="shell">
@@ -17,7 +18,8 @@
     </header>
     <section class="panel upload-panel">
       <h2>单图推理</h2>
-      <form hx-post="/ui/infer" hx-target="#result" hx-swap="innerHTML" hx-encoding="multipart/form-data">
+      <form hx-post="/ui/infer" hx-target="#result" hx-swap="innerHTML" hx-encoding="multipart/form-data"
+            data-result-target="#result" hx-sync="this:drop" hx-disabled-elt="find button[type='submit']">
         <label>样本 ID（可选）<input name="sample_id" type="text" maxlength="128"></label>
         <details><summary>样本元数据（可选）</summary>
           <input name="patient_id" placeholder="Patient ID" maxlength="128">
@@ -34,7 +36,8 @@
     </section>
     <section class="panel upload-panel">
       <h2>批量推理</h2>
-      <form class="batch-form" hx-post="/ui/jobs" hx-target="#batch-result" hx-swap="innerHTML" hx-encoding="multipart/form-data">
+      <form class="batch-form" hx-post="/ui/jobs" hx-target="#batch-result" hx-swap="innerHTML" hx-encoding="multipart/form-data"
+            data-result-target="#batch-result" hx-sync="this:drop" hx-disabled-elt="find button[type='submit']">
         <fieldset>
           <legend>模式</legend>
           <label><input type="radio" name="mode" value="independent" checked> 独立样本</label>
@@ -61,6 +64,7 @@
 {% if result %}
       <div class="panel result-panel">
         <div class="result-head">
+          <div class="result-file"><span class="label">文件名</span><strong>{{ result.image.filename }}</strong></div>
           <div><span class="label">样本</span><strong>{{ result.sample_id }}</strong></div>
           <div><span class="label">Provider</span><strong>{{ result.runtime.provider }}</strong></div>
           <div><span class="label">总耗时</span><strong>{{ "%.1f"|format(result.runtime.total_ms) }} ms</strong></div>

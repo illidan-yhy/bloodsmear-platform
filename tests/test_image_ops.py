@@ -65,6 +65,17 @@ def test_decode_image_rejects_payload_larger_than_limit() -> None:
         decode_image(b"x" * (25 * 1024 * 1024 + 1), "cell.png")
 
 
+@pytest.mark.parametrize("pixel_limit", [50, 150])
+def test_decode_image_reports_unsafe_pixel_dimensions_as_invalid_image(
+    monkeypatch, pixel_limit: int,
+) -> None:
+    # A 20x10 PNG reaches both Pillow's warning and error paths without large allocations.
+    data = image_bytes("RGB", "PNG")
+    monkeypatch.setattr(Image, "MAX_IMAGE_PIXELS", pixel_limit)
+    with pytest.raises(InvalidImageError, match="pixel dimensions"):
+        decode_image(data, "large.png")
+
+
 def test_letterbox_returns_normalized_fp32_nchw_tensor() -> None:
     rgb = np.full((100, 200, 3), 255, dtype=np.uint8)
 

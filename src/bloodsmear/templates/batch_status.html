@@ -7,12 +7,26 @@
   </div>
   <div class="progress-track"><span style="width: {{ ((job.completed_items + job.failed_items) / job.total_items * 100) if job.total_items else 0 }}%"></span></div>
   <p>{{ job.completed_items + job.failed_items }} / {{ job.total_items }} 已处理；{{ job.failed_items }} 失败</p>
-  {% if terminal %}
+  {% if job.error_code %}
+    <div class="panel feedback-panel feedback-error" role="alert">
+      <p>{{ job.error_message or '批量处理异常，请查看日志或联系维护人员。' }}</p>
+    </div>
+  {% endif %}
+  {% if terminal and job.error_code not in ['BATCH_SUMMARY_FAILED', 'BATCH_PACKAGING_FAILED', 'BATCH_PROCESSING_FAILED'] %}
     <div class="downloads">
       <a href="/api/v1/jobs/{{ job.id }}/download" download>下载 ZIP</a>
     </div>
   {% endif %}
-  {% for item in job.items if item.status.value == 'failed' %}
-    <p class="item-error">{{ item.original_filename }}：{{ item.error_code }}</p>
-  {% endfor %}
+  {% set failed_items = job.items|selectattr('status.value', 'equalto', 'failed')|list %}
+  {% if failed_items %}
+    <table class="failure-table">
+      <caption>失败图片清单</caption>
+      <thead><tr><th>序号</th><th>文件名</th><th>失败原因</th></tr></thead>
+      <tbody>
+      {% for item in failed_items %}
+        <tr><td>{{ item.ordinal + 1 }}</td><td>{{ item.original_filename }}</td><td>{{ item.error_message if item.error_message and item.error_message != 'Inference failed' else '图片处理失败，请重新提交此图片或查看日志。' }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  {% endif %}
 </div>

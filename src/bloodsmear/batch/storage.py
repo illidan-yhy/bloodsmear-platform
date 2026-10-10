@@ -11,6 +11,7 @@ from bloodsmear.config import AppSettings
 from bloodsmear.errors import (
     BatchTotalSizeExceededError,
     InvalidImageError,
+    BatchUploadFileError,
     UnsafeJobPathError,
 )
 from bloodsmear.image_ops import SUPPORTED_EXTENSIONS
@@ -48,12 +49,14 @@ class BatchStorage:
         files: Sequence[AsyncUpload],
     ) -> list[StagedUpload]:
         normalized: list[tuple[str, str]] = []
-        for upload in files:
+        for ordinal, upload in enumerate(files):
             original = Path(upload.filename or "").name
             extension = Path(original).suffix.lower()
             if extension not in SUPPORTED_EXTENSIONS:
-                raise InvalidImageError(
-                    f"Unsupported image extension: {extension or '<none>'}"
+                raise BatchUploadFileError(
+                    f"Unsupported image extension: {extension or '<none>'}",
+                    filename=original, index=ordinal + 1,
+                    reason="文件格式不支持，请选择 JPG、JPEG、PNG、TIF 或 TIFF 图片。",
                 )
             normalized.append((original, extension))
 
@@ -77,8 +80,10 @@ class BatchStorage:
                         file_bytes += len(chunk)
                         total_bytes += len(chunk)
                         if file_bytes > self.max_file_bytes:
-                            raise InvalidImageError(
-                                "Image exceeds the per-file upload limit"
+                            raise BatchUploadFileError(
+                                "Image exceeds the per-file upload limit",
+                                filename=original, index=ordinal + 1,
+                                reason=f"图片文件大小超过 {self.max_file_bytes / (1024 * 1024):g} MiB 限制，请选择较小的图片。",
                             )
                         if total_bytes > self.max_total_bytes:
                             raise BatchTotalSizeExceededError(

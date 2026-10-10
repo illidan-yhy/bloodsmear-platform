@@ -130,6 +130,8 @@ class BatchManager:
         if job.status not in TERMINAL_JOB_STATUSES:
             raise JobNotReadyError("Job is not ready")
         path = self.storage.job_root(job_id) / "summary.json"
+        if job.error_code in {"BATCH_SUMMARY_FAILED", "BATCH_PACKAGING_FAILED", "BATCH_PROCESSING_FAILED"}:
+            raise JobNotReadyError("Batch artifacts failed; existing artifacts may be stale")
         if not path.is_file():
             raise JobNotReadyError("Job summary is not ready")
         return json.loads(path.read_text(encoding="utf-8"))
@@ -139,6 +141,8 @@ class BatchManager:
         if job.status not in TERMINAL_JOB_STATUSES:
             raise JobNotReadyError("Job is not ready")
         path = self.storage.job_root(job_id) / "results.zip"
+        if job.error_code in {"BATCH_SUMMARY_FAILED", "BATCH_PACKAGING_FAILED", "BATCH_PROCESSING_FAILED"}:
+            raise JobNotReadyError("Batch archive failed; existing archive may be stale")
         if not path.is_file():
             raise JobNotReadyError("Job archive is not ready")
         return path

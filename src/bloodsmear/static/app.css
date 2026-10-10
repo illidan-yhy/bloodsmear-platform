@@ -28,6 +28,18 @@ input { width: 100%; border: 1px solid #b9cbc7; border-radius: 10px; padding: 10
 button, .downloads a { border: 0; border-radius: 10px; padding: 11px 16px; background: #0f766e; color: #fff; font-weight: 800; text-decoration: none; cursor: pointer; }
 .result-head { display: flex; gap: 28px; flex-wrap: wrap; margin-bottom: 18px; }
 .result-head > div { display: grid; gap: 3px; }
+.result-file { flex-basis: 100%; overflow-wrap: anywhere; }
+.feedback-panel { margin-top: 16px; overflow-wrap: anywhere; }
+.feedback-error { border-color: #d18b8b; background: #fff6f6; color: #842929; }
+.feedback-pending { border-color: #9cc8c0; color: #0f766e; }
+.feedback-panel p { margin: 8px 0; }
+.feedback-files, .feedback-code { font-size: 13px; }
+.failure-table { table-layout: fixed; margin-top: 16px; }
+.failure-table caption { text-align: left; font-weight: 700; margin-bottom: 8px; }
+.failure-table th, .failure-table td { text-align: left; vertical-align: top; overflow-wrap: anywhere; padding: 10px 8px; }
+.failure-table th:first-child { width: 12%; }
+.failure-table th:nth-child(2) { width: 38%; }
+button:disabled { opacity: .6; cursor: wait; }
 .label { color: #72838a; font-size: 11px; text-transform: uppercase; }
 .warnings { display: flex; gap: 8px; margin-bottom: 16px; }
 .warnings span { padding: 6px 9px; border-radius: 999px; background: #fff1d6; color: #8a5600; font-size: 12px; font-weight: 700; }

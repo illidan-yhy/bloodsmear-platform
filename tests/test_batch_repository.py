@@ -97,6 +97,24 @@ def test_claim_next_job_is_exactly_once_across_connections(tmp_path: Path) -> No
     assert duplicate is None
 
 
+def test_item_claim_reports_actual_database_transition(tmp_path: Path) -> None:
+    repo = repository(tmp_path)
+    repo.create_job(make_job(), make_items(), lambda: None)
+    repo.claim_next_job(NOW)
+    assert repo.mark_item_running("item-0") is True
+    assert repo.mark_item_running("item-0") is False
+    assert repo.mark_item_running("missing") is False
+
+
+def test_job_claim_returns_none_when_update_did_not_succeed(tmp_path: Path) -> None:
+    repo = repository(tmp_path)
+    repo.create_job(make_job(), make_items(), lambda: None)
+    with repo._connect() as connection:
+        connection.execute("CREATE TRIGGER deny_claim BEFORE UPDATE OF status ON batch_jobs WHEN NEW.status = 'running' BEGIN SELECT RAISE(IGNORE); END")
+    assert repo.claim_next_job(NOW) is None
+    assert repo.get_job("job-1").status == JobStatus.QUEUED
+
+
 def test_item_updates_progress_and_partial_finalization(tmp_path: Path) -> None:
     repo = repository(tmp_path)
     repo.create_job(make_job(), make_items(), lambda: None)

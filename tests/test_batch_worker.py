@@ -180,9 +180,10 @@ def test_worker_processes_in_order_and_completes_with_zip(tmp_path: Path) -> Non
     assert "failures.json" in names
     assert "report.xlsx" in names
     assert "report.pdf" in names
-    assert "items/item-0/result.json" in names
-    assert "items/item-0/report.xlsx" in names
-    assert "items/item-0/report.pdf" in names
+    assert "items/001_b.png/result.json" in names
+    assert "items/001_b.png/report.xlsx" in names
+    assert "items/001_b.png/report.pdf" in names
+    assert "items/002_a.png/report.pdf" in names
     assert (storage.job_root("job") / "items" / "item-0" / "report.xlsx").is_file()
     assert (storage.job_root("job") / "items" / "item-0" / "report.pdf").is_file()
     assert not any(name.startswith("inputs/") for name in names)
@@ -203,7 +204,7 @@ def test_worker_continues_after_failure_and_sanitizes_error(tmp_path: Path) -> N
     assert detail.status == JobStatus.PARTIAL_FAILED
     assert detail.failed_items == 1
     assert detail.items[0].error_code == "ITEM_INFERENCE_FAILED"
-    assert detail.items[0].error_message == "Inference failed"
+    assert "处理图片失败" in detail.items[0].error_message
     assert "secret" not in detail.items[0].error_message
 
 
@@ -270,3 +271,32 @@ def test_worker_skips_completed_item_after_recovery(tmp_path: Path) -> None:
 
     assert service.calls == ["next.png"]
     assert repo.get_job("job").status == JobStatus.COMPLETED
+
+
+def test_worker_does_not_infer_write_reports_or_finalize_when_item_claim_is_lost(tmp_path):
+    repo, storage, _ = setup_job(tmp_path, BatchMode.GROUPED, ["one.png"])
+    with repo._connect() as connection:
+        connection.execute("CREATE TRIGGER deny_item_claim BEFORE UPDATE OF status ON batch_items WHEN NEW.status = 'running' BEGIN SELECT RAISE(IGNORE); END")
+    service = FakeInferenceService()
+    assert worker(repo, storage, service).run_once() is True
+    assert service.calls == []
+    assert repo.get_job("job").status == JobStatus.RUNNING
+    assert not (storage.job_root("job") / "items").exists()
+    assert not (storage.job_root("job") / "results.zip").exists()
+
+
+def test_worker_stop_finishes_current_image_but_does_not_start_remaining_images(tmp_path):
+    repo, storage, _ = setup_job(tmp_path, BatchMode.GROUPED, ["one.png", "two.png"])
+    service = FakeInferenceService()
+    subject = worker(repo, storage, service)
+    original_infer = service.infer_bytes
+    def infer_and_stop(*args, **kwargs):
+        result = original_infer(*args, **kwargs)
+        subject._stop_event.set()
+        return result
+    service.infer_bytes = infer_and_stop
+    subject.run_once()
+    assert service.calls == ["one.png"]
+    assert repo.get_job("job").status == JobStatus.RUNNING
+    assert repo.get_items("job")[0].status == ItemStatus.COMPLETED
+    assert repo.get_items("job")[1].status == ItemStatus.PENDING

@@ -22,6 +22,7 @@ from bloodsmear.batch.domain import TERMINAL_JOB_STATUSES
 from bloodsmear.domain import InferenceResult, QCInfo, SampleMetadata
 from bloodsmear.errors import (
     BloodSmearError,
+    BatchUploadFileError,
     GPUUnavailableError,
     InferenceFailedError,
     InvalidImageError,
@@ -128,9 +129,12 @@ def create_app(
             status_code = 500
         else:
             status_code = 500
+        error = {"code": exc.code, "message": str(exc)}
+        if isinstance(exc, BatchUploadFileError):
+            error["file"] = exc.file_feedback
         return JSONResponse(
             status_code=status_code,
-            content={"error": {"code": exc.code, "message": str(exc)}},
+            content={"error": error},
         )
 
     async def run_upload(

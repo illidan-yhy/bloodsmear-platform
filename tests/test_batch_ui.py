@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 
 from bloodsmear.api import create_app
 from bloodsmear.batch.domain import BatchJobDetail, BatchMode, JobStatus
+from bloodsmear.batch.domain import BatchItem, ItemStatus
 from bloodsmear.config import AppSettings
 
 
@@ -91,3 +92,32 @@ def test_running_status_keeps_polling_and_terminal_status_stops(tmp_path: Path) 
     assert "hx-trigger" not in completed.text
     assert "/api/v1/jobs/job-1/download" in completed.text
     assert "下载 ZIP" in completed.text
+
+
+def test_batch_failure_shows_specific_item_and_job_messages(tmp_path):
+    manager = Manager()
+    manager.current = job(JobStatus.PARTIAL_FAILED).model_copy(update={
+        "error_code": "BATCH_PACKAGING_FAILED", "error_message": "批量打包失败，已成功的图片结果保留。",
+        "items": [BatchItem(id="item-1", job_id="job-1", ordinal=0, original_filename="corrupt.png", stored_filename="item.png", input_path="inputs/item.png", sample_id="S001", view_id="1", status=ItemStatus.FAILED, error_code="INVALID_IMAGE", error_message="图片损坏或内容无效。")],
+    })
+    with TestClient(create_app(SingleService(), AppSettings(output_dir=tmp_path), manager)) as client:
+        response = client.get("/ui/jobs/job-1/status")
+    assert "图片损坏" in response.text and "批量打包失败" in response.text
+    assert "INVALID_IMAGE" not in response.text and "corrupt.png" in response.text
+    assert "BATCH_PACKAGING_FAILED" not in response.text
+    assert 'role="alert"' in response.text
+    assert "下载 ZIP" not in response.text
+
+
+def test_failed_images_are_separate_numbered_rows_even_with_same_filename(tmp_path):
+    manager = Manager()
+    manager.current = job(JobStatus.FAILED).model_copy(update={"items": [
+        BatchItem(id="a", job_id="job-1", ordinal=0, original_filename="同名.png", stored_filename="a.png", input_path="inputs/a.png", sample_id="S001", view_id="1", status=ItemStatus.FAILED, error_code="INVALID_IMAGE", error_message="图片损坏。"),
+        BatchItem(id="b", job_id="job-1", ordinal=2, original_filename="同名.png", stored_filename="b.png", input_path="inputs/b.png", sample_id="S001", view_id="3", status=ItemStatus.FAILED, error_code="INVALID_IMAGE", error_message="像素尺寸过大。"),
+    ]})
+    with TestClient(create_app(SingleService(), AppSettings(output_dir=tmp_path), manager)) as client:
+        text = client.get("/ui/jobs/job-1/status").text
+    assert "序号" in text and "文件名" in text and "失败原因" in text
+    assert "<td>1</td>" in text and "<td>3</td>" in text
+    assert text.count("同名.png") == 2 and "图片损坏" in text and "像素尺寸过大" in text
+    assert "INVALID_IMAGE" not in text

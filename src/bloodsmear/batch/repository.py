@@ -141,7 +141,7 @@ class BatchRepository:
             if row is None:
                 connection.commit()
                 return None
-            connection.execute(
+            updated = connection.execute(
                 "UPDATE batch_jobs SET status = ?, started_at = ? WHERE id = ? AND status = ?",
                 (
                     JobStatus.RUNNING.value,
@@ -149,8 +149,10 @@ class BatchRepository:
                     row["id"],
                     JobStatus.QUEUED.value,
                 ),
-            )
+            ).rowcount
             connection.commit()
+            if updated != 1:
+                return None
             claimed = dict(row)
             claimed["status"] = JobStatus.RUNNING.value
             claimed["started_at"] = _format_datetime(now)
@@ -179,12 +181,13 @@ class BatchRepository:
             ).fetchall()
         return [_item_from_row(row) for row in rows]
 
-    def mark_item_running(self, item_id: str) -> None:
+    def mark_item_running(self, item_id: str) -> bool:
         with self._connect() as connection:
-            connection.execute(
+            updated = connection.execute(
                 "UPDATE batch_items SET status = ? WHERE id = ? AND status = ?",
                 (ItemStatus.RUNNING.value, item_id, ItemStatus.PENDING.value),
-            )
+            ).rowcount
+        return updated == 1
 
     def complete_item(
         self,
@@ -293,6 +296,35 @@ class BatchRepository:
             ).rowcount
         if not updated:
             raise JobNotFoundError(f"Job not found: {job_id}")
+
+    def fail_job(self, job_id: str, now: datetime, error_code: str, error_message: str) -> None:
+        """Finish a claimed failed job atomically, preserving completed image records."""
+        connection = self._connect()
+        try:
+            connection.execute("BEGIN IMMEDIATE")
+            row = connection.execute("SELECT status FROM batch_jobs WHERE id = ?", (job_id,)).fetchone()
+            if row is None:
+                raise JobNotFoundError(f"Job not found: {job_id}")
+            if row["status"] != JobStatus.RUNNING.value:
+                connection.commit()
+                return
+            connection.execute(
+                "UPDATE batch_items SET status = ?, error_code = ?, error_message = ? WHERE job_id = ? AND status IN (?, ?)",
+                (ItemStatus.FAILED.value, error_code, error_message, job_id, ItemStatus.PENDING.value, ItemStatus.RUNNING.value),
+            )
+            self._recompute_progress(connection, job_id)
+            completed = connection.execute("SELECT completed_items FROM batch_jobs WHERE id = ?", (job_id,)).fetchone()[0]
+            status = JobStatus.PARTIAL_FAILED if completed else JobStatus.FAILED
+            connection.execute(
+                "UPDATE batch_jobs SET status = ?, completed_at = ?, error_code = ?, error_message = ? WHERE id = ?",
+                (status.value, _format_datetime(now), error_code, error_message, job_id),
+            )
+            connection.commit()
+        except Exception:
+            connection.rollback()
+            raise
+        finally:
+            connection.close()
 
     def recover_interrupted(self) -> int:
         connection = self._connect()
