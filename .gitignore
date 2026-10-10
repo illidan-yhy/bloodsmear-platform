@@ -16,7 +16,7 @@ logs/
 releases/
 .superpowers/
 .idea/
-docs/superpowers/
+docs/
 
 # Public source repository: obtain model weights separately.
 *.onnx
